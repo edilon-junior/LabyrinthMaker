@@ -1,0 +1,1247 @@
+public partial class Form1 : Form
+    {
+        int scale = 50;
+        int hStep = 11;
+        int vStep = 11;
+        int offSetX = 20;
+        int offSetY = 20;
+        bool exitFound = false;
+        int[] start = new int[] { 0, 5 };
+        int[] end = new int[] { 10, 7 };
+        Color[] colors = new Color[] { Color.RoyalBlue, Color.Brown, Color.Cyan,
+        Color.DarkGoldenrod, Color.DarkViolet, Color.DeepPink, Color.DeepSkyBlue, Color.ForestGreen,
+        Color.Fuchsia, Color.Gainsboro, Color.Gold, Color.Green, Color.GreenYellow, Color.HotPink, Color.Orange,
+        Color.IndianRed, Color.Indigo, Color.Lavender, Color.LawnGreen, Color.LemonChiffon, Color.LightCoral,
+        Color.LightGreen, Color.LightSalmon, Color.Lime, Color.Purple};
+        List<Cell> pathVectors = new List<Cell>();
+        List<Cell> solution = new List<Cell>();
+        List<List<Cell>> ramifications = new List<List<Cell>>();
+        Cell[,] gridCoordinates;
+        
+        public bool[] checkBoxStates { get; set; }
+        public int lineWidth { get; set; }
+        public Color backGroundColor { get; set; }
+        public Color lineColor { get; set; }
+
+        public Form1()
+        {
+            checkBoxStates= new bool[4];
+            InitializeComponent();
+            this.Text = "Labyrinth";
+            this.backGroundColor = Color.White;
+            this.lineWidth = 5;
+            this.lineColor = Color.Black;
+        }
+
+        private void pictureBox1_Paint(object sender, System.Windows.Forms.PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            //e.Graphics.DrawImage(bmp, Point.Empty);
+        }
+
+
+        //create button
+        private void button1_Click(object sender, EventArgs e)
+        {
+            pictureBox1.BackColor = backGroundColor;
+
+            if (checkBoxStates[3] == true)
+            {
+                pictureBox1.BackColor = Color.Transparent;
+            }
+
+            var bmp = new Bitmap(hStep*scale + offSetX+20, vStep*scale+offSetY+20);
+
+            pictureBox1.Size = bmp.Size;
+
+            gridCoordinates = new Cell[hStep, vStep];
+
+            Pen linePen = new Pen(lineColor);
+            linePen.Width = lineWidth;
+
+            Pen solutionPen = new Pen(Color.Red);
+            solutionPen.Width = lineWidth;
+
+            //create path
+
+            using (Graphics g = Graphics.FromImage(bmp))
+            {
+                g.Clear(backGroundColor);
+
+                if (checkBoxStates[3] == true)
+                {
+                    g.Clear(Color.Transparent);
+                }
+
+                ChooseStartEnd(hStep, vStep);
+                Debug.WriteLine("############ m: button1_Click. startCell: (" + start[0] + ", " + start[1] + ")");
+                Debug.WriteLine("############ m: button1_Click. end cell: " + string.Join(", ", end));
+
+                CreateCells(hStep, vStep);
+               
+                CreatePath();
+
+                //set line ramifications
+                int i = 0;
+                foreach (List<Cell> ramif in ramifications)
+                {
+                    //PrintCells("ramification " + i + ": ", ramif);
+                    // Debug.WriteLine("############ try draw ramification: "+i);
+                    SetRamificationsLines(g, scale, offSetX, offSetY, ramif);
+                    i++;
+                }
+                
+                //Draw path
+                //show solution
+                if (checkBoxStates[2] == true)
+                {
+                    DrawPath(g, solutionPen, scale, offSetX, offSetY);
+                }
+
+                //DrawRamifications(g, scale, offSetX, offSetY);
+
+                DrawLabyrinth(g, linePen, scale, offSetX, offSetY, 
+                    hStep, vStep, checkBoxStates[0], checkBoxStates[1]);
+
+            }
+
+            pictureBox1.Image = bmp;
+
+            pictureBox1.Invalidate();
+
+            pathVectors.Clear();
+            solution.Clear();
+            ramifications.Clear();
+            exitFound = false;
+
+        }
+
+        //save button
+        private void button2_Click(object sender, EventArgs e)
+        {
+            // Displays a SaveFileDialog so the user can save the Image
+            // assigned to Button2.
+            var bmp = pictureBox1.Image;
+            SaveFileDialog saveFileDialog1 = new SaveFileDialog();
+            saveFileDialog1.Filter = "JPeg Image|*.jpg|Bitmap Image|*.bmp|Gif Image|*.gif|PNG Image|*.png";
+            saveFileDialog1.Title = "Save an Image File";
+            saveFileDialog1.ShowDialog();
+
+            // If the file name is not an empty string open it for saving.
+            if (saveFileDialog1.FileName != "")
+            {
+                // Saves the Image via a FileStream created by the OpenFile method.
+                System.IO.FileStream fs =
+                    (System.IO.FileStream)saveFileDialog1.OpenFile();
+                // Saves the Image in the appropriate ImageFormat based upon the
+                // File type selected in the dialog box.
+                // NOTE that the FilterIndex property is one-based.
+                if (checkBoxStates[3] == true)
+                {
+                    bmp.Save(fs,
+                        System.Drawing.Imaging.ImageFormat.Png);
+                }
+                else
+                {
+
+                    switch (saveFileDialog1.FilterIndex)
+                    {
+                        case 1:
+                            bmp.Save(fs,
+                              System.Drawing.Imaging.ImageFormat.Jpeg);
+                            break;
+
+                        case 2:
+                            bmp.Save(fs,
+                              System.Drawing.Imaging.ImageFormat.Bmp);
+                            break;
+
+                        case 3:
+                            bmp.Save(fs,
+                              System.Drawing.Imaging.ImageFormat.Gif);
+                            break;
+                        case 4:
+                            bmp.Save(fs,
+                                System.Drawing.Imaging.ImageFormat.Png);
+                            break;
+                    }
+                }
+                fs.Dispose();
+                fs.Close();
+            }
+        }
+
+        //menu button
+        private void button3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        //Ferramentas button
+        private void button4_Click(object sender, EventArgs e)
+        {
+            Form2 toolBox = new Form2(this);
+            toolBox.Show();
+        }
+
+        //Ajuda button
+        private void button5_Click(object sender, EventArgs e)
+        {
+            string text = "Contato com o desenvolvedor:\n edilonfsj@gmail.com";
+
+            Form messageBox = new Form();
+            messageBox.Size = new Size(200, 200);
+            Label textLabel = new Label();
+            textLabel.Text = text;
+            textLabel.TextAlign = ContentAlignment.MiddleCenter;
+            textLabel.Anchor = AnchorStyles.Top;
+            textLabel.Anchor = AnchorStyles.Bottom;
+            textLabel.Size = new Size(messageBox.Size.Height - 20, messageBox.Size.Width - 20);
+            messageBox.Controls.Add(textLabel);
+            messageBox.Show();
+        }
+
+        public void CreateCells(int x, int y)
+        {
+            for (int i = 0; i < x; i++)
+            {
+                for (int j = 0; j < y; j++)
+                {
+                    gridCoordinates[i, j] = new Cell(i, j);
+                    gridCoordinates[i, j].SetBorderLines(x,y,start, end, vStep);
+                }
+            }
+        }
+
+        public void ChooseStartEnd(int x, int y)
+        {
+            int startSide = new Random().Next(4);
+            switch (startSide)
+            {
+                case 0:
+                    start[0] = new Random().Next(1,x-1);
+                    start[1] = 0;
+                    if (start[0]%2 == 0)
+                    {
+                        start[0] = start[0] + 1;
+                    }
+                    break;
+                case 1:
+                    start[0] = x-1;
+                    start[1] = new Random().Next(1,y-1);
+                    if (start[1] % 2 == 0)
+                    {
+                        start[1] = start[1] + 1;
+                    }
+                    break;
+                case 2:
+                    start[0] = new Random().Next(1,x-1);
+                    start[1] = y-1;
+                    if (start[0] % 2 == 0)
+                    {
+                        start[0] = start[0] + 1;
+                    }
+                    break;
+                case 3:
+                    start[0] = 0;
+                    start[1] = new Random().Next(1,y - 1);
+                    if (start[1] % 2 == 0)
+                    {
+                        start[1] = start[1] + 1;
+                    }
+                    break;
+            }
+            int endSide = new Random().Next(4);
+            switch (endSide)
+            {
+                case 0:
+                    end[0] = new Random().Next(1, x - 1);
+                    end[1] = 0;
+                    if (end[0] % 2 == 0)
+                    {
+                        end[0] = end[0] + 1;
+                    }
+                    break;
+                case 1:
+                    end[0] = x-1;
+                    end[1] = new Random().Next(1, y - 1);
+                    if (end[1] % 2 == 0)
+                    {
+                        end[1] = end[1] + 1;
+                    }
+                    break;
+                case 2:
+                    end[0] = new Random().Next(1, x - 1);
+                    end[1] = y-1;
+                    if (end[0] % 2 == 0)
+                    {
+                        end[0] = end[0] + 1;
+                    }
+                    break;
+                case 3:
+                    end[0] = 0;
+                    end[1] = new Random().Next(1, y - 1);
+                    if (end[1] % 2 == 0)
+                    {
+                        end[1] = end[1] + 1;
+                    }
+                    break;
+            }
+        }
+
+        /*
+         * 
+         * *** RETURN METHOD ***
+         *
+         * 
+         */
+        public void CreatePath()
+        {
+            bool allPathBlocked = false;
+            int step = 1;
+
+            //create exit
+            Cell exitCell = gridCoordinates[end[0], end[1]];
+            exitCell.IsPath = true;
+            exitCell.IsExit = true;
+            SetRamificationNeighbors(exitCell, gridCoordinates);
+            int[] nearStep = ChoosePath(exitCell);
+            Cell nearCell = new Cell(exitCell.X + nearStep[0], exitCell.Y + nearStep[1]);
+            ramifications.Add(new List<Cell> { exitCell, nearCell });
+
+            //create first cell at start
+            Cell oldCell = gridCoordinates[start[0], start[1]];
+            gridCoordinates[start[0], start[1]].IsPath = true;
+            oldCell.IsPath = true;
+            SetRamificationNeighbors(oldCell, gridCoordinates);
+            pathVectors.Add(oldCell);
+
+            int n = 0;
+
+            while (allPathBlocked == false)
+            {
+                SetRamificationNeighbors(oldCell, gridCoordinates);
+
+                if (oldCell.IsBlocked() == true)
+                {
+                    break;
+                }
+
+                int[] nextStep = ChoosePath(oldCell);
+
+                Cell nextCell = new Cell(oldCell.X + nextStep[0] * step, oldCell.Y + nextStep[1] * step);
+
+                if (step == 1) { step = 2; };
+
+                n++;
+
+                SetRamificationNeighbors(nextCell, gridCoordinates);
+
+                nextCell.PreviousCell = oldCell;
+                nextCell.IsPath = true;
+                gridCoordinates[nextCell.X, nextCell.Y] = nextCell;
+
+                bool blocked = true;
+                List<Cell> ramification = new List<Cell>();
+
+                pathVectors.Add(nextCell);
+
+                //check if path is ramification, if yes, then add to ramifications
+                while (blocked == true)
+                {
+                    
+
+                    if (pathVectors.Count - 1 < 0)
+                    {
+                        allPathBlocked = true;
+                        break;
+                    }
+
+                    SetRamificationNeighbors(nextCell, gridCoordinates);
+
+                    if (exitFound == true && solution.Count == 0)
+                    {
+                        //Debug.WriteLine("----------- exit found ------------");
+                        solution.AddRange(pathVectors);
+                        solution.Add(exitCell);
+                    }
+
+                    if (nextCell.IsBlocked() == true)
+                    {
+                        
+                        ramification.Add(nextCell);     
+
+                        pathVectors.RemoveAt(pathVectors.Count - 1);
+
+                        //Debug.Write(nextCell.ToString());      
+
+                        if (pathVectors.Count > 0)
+                        {
+                            nextCell = pathVectors[pathVectors.Count - 1];
+                        }
+                    }
+                    else
+                    {
+                        blocked = false;
+                    }
+                }
+                
+                if (ramification.Count > 0)
+                {
+                    if (pathVectors.Count > 0)
+                    {
+                        ramification.Add(pathVectors[pathVectors.Count - 1]);
+                    }
+                    ramifications.Add(ramification);
+                }
+
+                oldCell = nextCell;
+            }
+        }
+
+        //choose a path tha not blocked
+        public int[] ChoosePath(Cell cell)
+        {
+            List<int> availablePaths = new List<int>();
+            int count = 0;
+
+            for (int i = 0; i < cell.Neighbors.Length; i++)
+            {
+                if (cell.Neighbors[i] == false)
+                {
+                    availablePaths.Add(i);
+                    count++;
+                }
+            }
+
+            int[] path = new int[2];
+            int rnum = new Random().Next(count);
+
+            if (count == 0)
+            {
+                return path;
+            }
+
+            int pick = availablePaths[rnum];
+
+            if (pick == 0)
+            {
+                path[0] = 0;
+                path[1] = -1;
+            }
+            else if (pick == 1)
+            {
+                path[0] = 1;
+                path[1] = 0;
+            }
+            else if (pick == 2)
+            {
+                path[0] = 0;
+                path[1] = 1;
+            }
+            else
+            {
+                path[0] = -1;
+                path[1] = 0;
+            }
+
+            return path;
+        }
+        
+        public void SetRamificationNeighbors(Cell cell, Cell[,] grid)
+        {
+            Cell? upShort = null;
+            Cell? rightShort = null;
+            Cell? downShort = null;
+            Cell? leftShort = null;
+            Cell? up = null;
+            Cell? right = null;
+            Cell? down = null;
+            Cell? left = null;
+
+            //set cell neighbors
+            if (cell.Y - 2 >= 0)
+            {
+                up = grid[cell.X, cell.Y - 2];
+            }
+            if (cell.X + 2 <= hStep - 1)
+            {
+                right = grid[cell.X + 2, cell.Y];
+            }
+            if (cell.Y + 2 <= vStep - 1)
+            {
+                down = grid[cell.X, cell.Y + 2];
+            }
+            if (cell.X - 2 >= 0)
+            {
+                left = grid[cell.X - 2, cell.Y];
+            }
+            if (cell.Y - 1 >= 0)
+            {
+                upShort = grid[cell.X, cell.Y - 1];
+            }
+            if (cell.X + 1 <= hStep - 1)
+            {
+                rightShort = grid[cell.X + 1, cell.Y];
+            }
+            if (cell.Y + 1 <= vStep - 1)
+            {
+                downShort = grid[cell.X, cell.Y + 1];
+            }
+            if (cell.X - 1 >= 0)
+            {
+                leftShort = grid[cell.X - 1, cell.Y];
+            }
+
+            if(upShort != null )
+            {
+                if (upShort.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (upShort.IsPath == true || upShort.IsWall == true)
+                {
+                    cell.Neighbors[0] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[0] = true;
+            }
+            if(rightShort != null)
+            {
+                if (rightShort.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (rightShort.IsPath == true || rightShort.IsWall == true)
+                {
+                    cell.Neighbors[1] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[1] = true;
+            }
+            if(downShort != null)
+            {
+                if (downShort.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (downShort.IsPath == true || downShort.IsWall == true)
+                {
+                    cell.Neighbors[2] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[2] = true;
+            }
+            if(leftShort != null)
+            {
+                if (leftShort.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (leftShort.IsPath == true || leftShort.IsWall == true)
+                {
+                    cell.Neighbors[3] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[3] = true;
+            }
+            if (up != null)
+            {
+                if (up.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (up.IsPath == true || up.IsWall == true)
+                {
+                    cell.Neighbors[0] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[0] = true;
+            }
+            if (right != null)
+            {
+                if (right.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (right.IsPath == true || right.IsWall == true)
+                {
+                    cell.Neighbors[1] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[1] = true;
+            }
+            if (down != null)
+            {
+                if (down.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (down.IsPath == true || down.IsWall == true)
+                {
+                    cell.Neighbors[2] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[2] = true;
+            }
+            if (left != null)
+            {
+                if (left.IsExit == true)
+                {
+                    exitFound = true;
+                }
+                if (left.IsPath == true || left.IsWall == true)
+                {
+                    cell.Neighbors[3] = true;
+                }
+            }
+            else
+            {
+                cell.Neighbors[3] = true;
+            }
+
+        }
+
+        public void DrawLabyrinth(Graphics g,
+                                     Pen pen,
+                                     int scale, int offSetX, int offSetY,
+                                     int x, int y, bool showDot, bool showCoordinates)
+        {
+   
+            for (int i = 0; i < gridCoordinates.GetLength(0); i++)
+            {
+                for (int j = 0; j < gridCoordinates.GetLength(1); j++)
+                {
+                    gridCoordinates[i, j].SetBorderLines(x, y, start, end, vStep);
+                    //setup start and end lines
+
+                    //Debug.Write(gridCoordinates[i, j].ToString() + ", ");
+  
+                    if (gridCoordinates[i, j].IsPath == false || gridCoordinates[i,j].IsWall == true)
+                    {
+                        gridCoordinates[i, j].Draw(g, pen, scale, offSetX, offSetY, checkBoxStates);
+                    }
+                    
+                                   
+                }
+            }
+
+        }
+
+        public void SetLines(Cell[,] gridCoord, Cell c1, Cell c2)
+        {
+            //c2 - c1
+            int direction = c2.getDirection(c1);
+
+            //Debug.WriteLine("@@@@@@@@@@ direction from "+c1.ToString()+" to "+c2.ToString()+" : "+direction);
+
+            Cell? north = null;
+            Cell? northeast = null;
+            Cell? east = null;
+            Cell? southeast = null;
+            Cell? south = null;
+            Cell? southweast = null;
+            Cell? weast = null;
+            Cell? northweast = null;
+
+            if (c1.Y - 1 >= 0)
+            {
+                north = gridCoord[c1.X + 0, c1.Y - 1];
+            }  
+            if ((c1.X +1) < gridCoord.GetLength(0) && (c1.Y - 1) >= 0) { 
+                northeast = gridCoord[c1.X + 1, c1.Y - 1];
+            }
+            if ((c1.X + 1) < gridCoord.GetLength(0))
+            {
+                east = gridCoord[c1.X + 1, c1.Y + 0];
+            }
+            if ((c1.X + 1) < gridCoord.GetLength(0) && (c1.Y + 1) < gridCoord.GetLength(1))
+            {
+                southeast = gridCoord[c1.X + 1, c1.Y + 1];
+            }
+            if (c1.Y + 1 < gridCoord.GetLength(1))
+            {
+                south = gridCoord[c1.X + 0, c1.Y + 1];
+            }
+            if ((c1.X - 1) >= 0 && (c1.Y + 1) < gridCoord.GetLength(1))
+            {
+                southweast = gridCoord[c1.X - 1, c1.Y + 1];
+            }
+            if (c1.X - 1 >= 0)
+            {
+                weast = gridCoord[c1.X - 1, c1.Y + 0];
+            }
+            if (c1.X-1 >= 0 && c1.Y-1 >= 0)
+            {
+                northweast = gridCoord[c1.X - 1, c1.Y - 1];
+            }
+
+            //direction points to up
+            if (direction == 0)
+            {
+                if (north != null)
+                {
+                    AddLines(north.Lines, new bool[] { false, false, false, false });
+                }
+                if (northeast != null)
+                {
+                    AddLines(northeast.Lines, new bool[] { true, true, true, false });
+                }
+                if (east != null)
+                {
+                    AddLines(east.Lines, new bool[] { true, true, true, false });
+                }
+                if (southeast != null)
+                {
+                    AddLines(southeast.Lines, new bool[] { true, true, true, false });
+                }
+                if (south != null)
+                {
+                    AddLines(south.Lines, new bool[] { false, true, true, true });
+                }
+                if (southweast != null)
+                {
+                    AddLines(southweast.Lines, new bool[] { true, false, true, true });
+                }
+                if (weast != null)
+                {
+                    AddLines(weast.Lines, new bool[] { true, false, true, true });
+                }
+                if (northweast != null)
+                {
+                    AddLines(northweast.Lines, new bool[] { true, false, true, true });
+                }
+            }
+            //direction right
+            if (direction == 1)
+            {
+                if (north != null)
+                {
+                    AddLines(north.Lines, new bool[] { true, true, false, true });
+                }
+                if (northeast != null)
+                {
+                    AddLines(northeast.Lines, new bool[] { true, true, false, true });
+                }
+                if (east != null)
+                {
+                    AddLines(east.Lines, new bool[] { false, false, false, false });
+                }
+                if (southeast != null)
+                {
+                    AddLines(southeast.Lines, new bool[] { false, true, true, true });
+                }
+                if (south != null)
+                {
+                    AddLines(south.Lines, new bool[] { false, true, true, true });
+                }
+                if (southweast != null)
+                {
+                    AddLines(southweast.Lines, new bool[] { false, true, true, true });
+                }
+                if (weast != null)
+                {
+                    AddLines(weast.Lines, new bool[] { true, false, true, true });
+                }
+                if (northweast != null)
+                {
+                    AddLines(northweast.Lines, new bool[] { true, true, false, true });
+                }
+            }
+            //direction down
+            if (direction == 2)
+            {
+                if (north != null)
+                {
+                    AddLines(north.Lines, new bool[] { true, true, false, true });
+                }
+                if (northeast != null)
+                {
+                    AddLines(northeast.Lines, new bool[] { true, true, true, false });
+                }
+                if (east != null)
+                {
+                    AddLines(east.Lines, new bool[] { true, true, true, false });
+                }
+                if (southeast != null)
+                {
+                    AddLines(southeast.Lines, new bool[] { true, true, true, false });
+                }
+                if (south != null)
+                {
+                    AddLines(south.Lines, new bool[] { false, false, false, false });
+                }
+                if (southweast != null)
+                {
+                    AddLines(southweast.Lines, new bool[] { true, false, true, true });
+                }
+                if (weast != null)
+                {
+                    AddLines(weast.Lines, new bool[] { true, false, true, true });
+                }
+                if (northweast != null)
+                {
+                    AddLines(northweast.Lines, new bool[] { true, false, true, true });
+                }
+            }
+            //direction left
+            if (direction == 3)
+            {
+                if (north != null)
+                {
+                    AddLines(north.Lines, new bool[] { true, true, false, true });
+                }
+                if (northeast != null)
+                {
+                    AddLines(northeast.Lines, new bool[] { true, true, false, true });
+                }
+                if (east != null)
+                {
+                    AddLines(east.Lines, new bool[] { true, true, true, false });
+                }
+                if (southeast != null)
+                {
+                    AddLines(southeast.Lines, new bool[] { false, true, true, true });
+                }
+                if (south != null)
+                {
+                    AddLines(south.Lines, new bool[] { false, true, true, true });
+                }
+                if (southweast != null)
+                {
+                    AddLines(southweast.Lines, new bool[] { false, true, true, true });
+                }
+                if (weast != null)
+                {
+                    AddLines(weast.Lines, new bool[] { false, false, false, false });
+                }
+                if (northweast != null)
+                {
+                    AddLines(northweast.Lines, new bool[] { true, true, false, true });
+                }
+            }
+        }
+
+        public void AddLines(bool[] oldLines, bool[] newLines)
+        {
+            for(int i = 0; i < newLines.Length; i++)
+            {
+                if (newLines[i] == false)
+                {
+                    oldLines[i] = false;
+                }
+            }
+        }
+
+        public void DrawPath(Graphics g, Pen pen, int scale, int oX, int oY)
+        {
+            Debug.Write("############ draw solution: ");
+            for (int i = 0; i < solution.Count - 1; i++)
+            {
+                Debug.Write(solution[i].ToString()+", ");
+                g.DrawLine(pen, solution[i].X * scale+oX, solution[i].Y * scale+oY,
+                    solution[i + 1].X * scale+oX, solution[i + 1].Y * scale+oY);
+            }
+            Debug.WriteLine("");
+            Debug.WriteLine("########## solution vectors: "+string.Join(",", solution));
+        }
+
+        public void DrawRamifications(Graphics g, int scale, int oX, int oY)
+        {
+            foreach (List<Cell> ramif in ramifications)
+            {
+                Color randomColor = colors[new Random().Next(colors.Length)];
+                Pen pen = new Pen(randomColor);
+                pen.Width = lineWidth;
+
+                for (int i = 0; i < ramif.Count - 1; i++)
+                {
+
+                    g.DrawLine(pen, ramif[i].X * scale + oX, ramif[i].Y * scale + oY,
+                        ramif[i + 1].X * scale + oX, ramif[i + 1].Y * scale + oY);
+                }
+            }
+           
+        }
+
+        public void SetRamificationsLines(Graphics graf, int scale, int oX, int oY, List<Cell> path)
+        {
+            Color color = colors[new Random().Next(colors.Length-1)];
+
+            Pen pen = new Pen(color);
+            pen.Width = 5;
+
+            for (int i = 1; i < path.Count; i++)
+            {
+                SetLines(gridCoordinates, path[i - 1], path[i]);
+                //graf.DrawLine(pen, path[i].X * scale +oX, path[i].Y * scale +oY,
+                //    path[i - 1].X * scale +oX, path[i - 1].Y * scale +oY);
+            }
+        }
+
+        //largura
+        private void textBox2_TextChanged(object sender, EventArgs e)
+        {
+            String tempStr = textBox2.Text;
+            if (tempStr.Length > 0)
+            { 
+
+                int number;
+
+                bool success = int.TryParse(tempStr, out number);
+                if (success)
+                {
+                    hStep = number;
+                }
+
+                if (hStep % 2 == 0) { hStep++; }
+            }
+        }
+        //Altura
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+            String tempStr = textBox1.Text;
+
+            if (tempStr.Length > 0)
+            {
+                int number;
+
+                bool success = int.TryParse(tempStr, out number);
+                if (success)
+                {
+                    vStep = number;
+                }
+
+                if (vStep % 2 == 0) { vStep++; }
+            }
+        }
+
+       
+        //The ValueChanged event handler of your hScrollBar1
+        private void hScrollBar1_ValueChanged(object sender, EventArgs e)
+        {
+            int h = (sender as HScrollBar).Value; //between 1 and 100
+            int pictureWidth = this.pictureBox1.Size.Width - this.Size.Height;
+            float moveX = (float)pictureWidth * ((float) h / 100);
+            int newX = - (int)moveX;
+            this.pictureBox1.Location = new Point(newX,this.pictureBox1.Location.Y);
+        }
+        //The ValueChanged event handler of your hScrollBar1
+        private void vScrollBar1_ValueChanged(object sender, EventArgs e)
+        {
+            int v = (sender as VScrollBar).Value; //between 1 and 100
+            int pictureHeight = this.pictureBox1.Size.Height;
+            float moveY = (float)pictureHeight * ((float)v / 100);
+            int newY = - (int)moveY;
+            this.pictureBox1.Location = new Point(this.pictureBox1.Location.X, newY);
+
+        }
+
+        private void Form1_SizeChanged(object sender, EventArgs e)
+        {
+            int panelHeight = this.ClientSize.Height - hScrollBar1.Height -
+                hScrollBar1.Height - tableLayoutPanel1.Height;
+            this.vScrollBar1.Size = new Size(this.vScrollBar1.Width, panelHeight);
+
+            int panelWidth = this.ClientSize.Width;
+            this.hScrollBar1.Size = new Size(panelWidth, this.hScrollBar1.Height);
+
+            this.panel1.Height = panelHeight;
+            this.panel1.Width = panelWidth;
+
+        }
+        public partial class Cell
+        {
+            public static int BORDERS = 4;
+            public int X { get; set; }
+            public int Y { get; set; }
+            public int Index { get; set; }
+
+            public bool[] Lines { get; set; }
+
+            public int[,] Upper { get; set; }
+            public int[,] Bottom { get; set; }
+            public int[,] Left { get; set; }
+            public int[,] Right { get; set; }
+
+            //Neighbors[] {up, right, down, left}
+            public bool[] Neighbors { get; set; }
+
+            public bool IsUpperBorder { get; set; }
+            public bool IsBottomBorder { get; set; }
+            public bool IsLeftBorder { get; set; }
+            public bool IsRightBorder { get; set; }
+
+            public Cell[] NeightborCells { get; set; }
+
+            public bool IsPath { get; set; }
+            public bool IsWall { get; set; }
+            public bool IsNode { get; set; }
+            public bool IsExit { get; set; }
+
+            public Cell? PreviousCell { get; set; }
+
+            public Cell(int x, int y)
+            {
+                this.X = x;
+                this.Y = y;
+                this.Index = -1;
+                this.Upper = new int[2, 2];
+                this.Bottom = new int[2, 2];
+                this.Left = new int[2, 2];
+                this.Right = new int[2, 2];
+                this.IsUpperBorder = false; //borders[0]
+                this.IsRightBorder = false; //borders[1]
+                this.IsBottomBorder = false;//borders[2]
+                this.IsLeftBorder = false;  //borders[3]
+                this.Neighbors = new bool[4];
+                this.IsPath = false;
+                this.IsWall = false;
+                this.IsNode = false;
+                this.IsExit = false;
+                this.NeightborCells = new Cell[4];
+                this.Lines = new bool[] { true, true, true, true };
+                this.PreviousCell = null;
+            }
+
+            public override string ToString() => "(" + X + ", " + Y + ")";
+
+            public void SetBorderLines(int x, int y, int[] start, int[] end, int vStep)
+            {
+               
+                //set others cells
+                if (this.X == 0 && this.Y == 0)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, true, true, false };
+                }
+                if (this.Y == 0 && this.X > 0 && this.X < x - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, true, false, false };
+                }
+                if (this.X == x - 1 && this.Y == 0)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, false, true, false };
+                }
+                if (this.X == x - 1 && this.Y > 0 && this.Y < y - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, false, true, false };
+                }
+                if (this.X == x - 1 && this.Y == y - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, false, false, false };
+                }
+                if (this.Y == y - 1 && this.X > 0 && this.X < x - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, true, false, false };
+                }
+                if (this.X == 0 && this.Y == y - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, true, false, false };
+                }
+                if (this.X == 0 && this.Y > 0 && this.Y < y - 1)
+                {
+                    this.IsWall = true;
+                    this.Lines = new bool[] { false, false, true, false };
+                }
+                //set start cell lines
+                if (this.X == start[0] && this.Y == start[1])
+                {
+                    this.Lines = new bool[4];                      
+                    //return;
+                }
+                if (this.X == start[0] && this.Y == start[1] - 1)
+                {
+                    if (this.X == 0 && this.Y == 0)
+                    {
+                        this.Lines = new bool[] { false, true, false, false };
+                    }
+                    else
+                    {
+                        this.Lines = new bool[4];
+                    }
+                    //return;
+                }
+                if (this.X == start[0] + 1 && this.Y == start[1])
+                {
+                    if (start[1] == 0 || start[1] == vStep - 1)
+                    {
+                       return;
+                    }
+                    this.Lines = new bool[4];
+                    //return;
+                }
+                if (this.X == start[0] - 1 && this.Y == start[1])
+                {
+                    if (this.X == 0 && this.Y == 0)
+                    {
+                        this.Lines = new bool[] { false, false, true, false };
+                    }
+                    else
+                    {
+                        this.Lines = new bool[4];
+                    }
+                    //return;
+                }
+                //set end cell lines 
+                if (this.X == end[0] && this.Y == end[1])
+                {
+                    this.Lines = new bool[4];
+                    //return;
+                }
+                if (this.X == end[0] && this.Y == end[1] - 1)
+                {
+                    if (this.X == 0 && this.Y == 0)
+                    {
+                        this.Lines = new bool[] { false, true, false, false };
+                    }
+                    else
+                    {
+                        this.Lines = new bool[4];
+                    }
+                }
+                if (this.X == end[0] + 1 && this.Y == end[1])
+                {
+                    if (end[1] == 0 || end[1] == vStep - 1)
+                    {
+                        return;
+                    }
+                    this.Lines = new bool[4];
+                    return;
+                }
+                if (this.X == end[0] - 1 && this.Y == end[1])
+                {
+
+                    if (this.X == 0 && this.Y == 0)
+                    {
+                        this.Lines = new bool[] { false, false, true, false };
+                    }
+                    else
+                    {
+                        this.Lines = new bool[4];
+                    }
+                }
+            }
+
+            public int[] getVec(Cell cell)
+            {
+                return new int[] { this.X - cell.X, this.Y - cell.Y, 0 };
+            }
+
+            public bool IsBlocked()
+            {
+                bool result = true;
+                foreach (bool n in this.Neighbors)
+                {
+                    if (n == false)
+                    {
+                        result = false;
+                        break;
+                    }
+                }
+                return result;
+            }
+
+            public int getDirection(Cell cell)
+            {
+                int[] dirVector = this.getVec(cell);
+                /*
+                 *             |(0,Y<0)
+                 *             |
+                 * (x<0,0)-----|----- (x>0, 0)
+                 *             |
+                 *             |(0,y>0)
+                 */
+                // y<0
+                if (dirVector[1] < 0) { return 0; }
+                // x>0
+                if (dirVector[0] > 0) { return 1; }
+                // y>0
+                if (dirVector[1] > 0) { return 2; }
+                // x<0
+                return 3;
+            }
+
+            public int getDirection(int[] vec)
+            {
+                int[] dirVector = new int[] { this.X - vec[0], this.Y - vec[0] };
+
+                if (dirVector[1] < 0) { return 0; }
+                if (dirVector[0] > 0) { return 1; }
+                if (dirVector[1] > 0) { return 2; }
+                return 3;
+            }
+
+            public bool IsEquals(Cell cell)
+            {
+                if (this.X == cell.X && this.Y == cell.Y) { return true; }
+                return false;
+            }
+
+            public void Draw(Graphics g, 
+                Pen pen, int scale, int oX, int oY, bool[] checkBoxStates)
+            {
+                if (this.Lines[0] == true)
+                {
+                    g.DrawLine(pen, (this.X) * scale + oX, (this.Y) * scale + oY, (this.X) * scale + oY, (this.Y - 1) * scale + oY);
+                }
+                if (this.Lines[1] == true)
+                {
+                    g.DrawLine(pen, (this.X) * scale + oX, (this.Y) * scale + oY, (this.X + 1) * scale + oX, (this.Y) * scale + oY);
+                }
+                if (this.Lines[2] == true)
+                {
+                    g.DrawLine(pen, (this.X) * scale + oX, (this.Y) * scale + oY, (this.X) * scale + oX, (this.Y + 1) * scale + oY);
+                }
+                if (this.Lines[3] == true)
+                {
+                    g.DrawLine(pen, (this.X) * scale + oX, (this.Y) * scale + oY, (this.X - 1) * scale + oX, (this.Y) * scale + oY);
+                }
+
+                //g.DrawEllipse(pen, rectangle);
+
+                if (checkBoxStates[0] == true)
+                {
+                    g.FillEllipse(new SolidBrush(pen.Color),
+                        (this.X - 0.1f) * scale + oX, (this.Y - 0.1f) * scale + oY, 0.25f * scale, 0.25f * scale);
+                }
+
+                //draw cell coordinates
+                if (checkBoxStates[1] == true)
+                {
+                    string coord = this.ToString();
+                    Font drawFont = new Font("Arial", 10);
+                    SolidBrush drawBrush = new SolidBrush(Color.Black);
+                    StringFormat drawFormat = new StringFormat();
+                    drawFormat.Alignment = StringAlignment.Center;
+
+                    g.DrawString(coord, drawFont, drawBrush,
+                        new PointF((this.X) * scale + oX + 23, (this.Y) * scale + oY - 23), drawFormat);
+                }
+                
+            }
+
+        }
+
+
+    }
